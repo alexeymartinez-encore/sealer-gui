@@ -539,7 +539,6 @@ class App(customtkinter.CTk):
                     )
                     
                     capNo += 1
-                    print()
                     self.data_to_write = []
                     break
 
