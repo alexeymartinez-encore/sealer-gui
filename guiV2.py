@@ -1,4 +1,4 @@
-import customtkinter
+mport customtkinter
 import tkinter
 import tkinter as tk
 from tkinter import ttk, messagebox
@@ -467,9 +467,9 @@ class App(customtkinter.CTk):
                 self.scrollable_frame,
                 text="",
                 variable=toggle_var,
-                # command=lambda col=cap_id, var=toggle_var: self.update_result_label(
-                #     col, var
-                # ),
+                command=lambda col=cap_id, var=toggle_var: self.update_result_label(
+                    col, var
+                ),
             )
             toggle.grid(row=cap_id, column=3, padx=0, pady=0, sticky="e")
 
@@ -480,12 +480,12 @@ class App(customtkinter.CTk):
         return self.scrollable_frame
     
     #needs more work
-    # def update_result_label(self, column_index, toggle_var):
-    #     result_label = self.scrollable_frame_switches[column_index]["result_label"]
-    #     if toggle_var.get():
-    #         result_label.configure(text="Passed", text_color="green")
-    #     else:
-    #         result_label.configure(text="Failed", text_color="red")
+    def update_result_label(self, column_index, toggle_var):
+        result_label = self.scrollable_frame_switches[column_index]["result_label"]
+        if toggle_var.get():
+            result_label.configure(text="Passed", text_color="green")
+        else:
+            result_label.configure(text="Failed", text_color="red")
 
             # Add a new method to check for changes in the CSV file
 
