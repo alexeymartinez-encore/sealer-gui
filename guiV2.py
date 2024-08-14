@@ -1,4 +1,4 @@
-mport customtkinter
+import customtkinter
 import tkinter
 import tkinter as tk
 from tkinter import ttk, messagebox
@@ -458,6 +458,7 @@ class App(customtkinter.CTk):
             if(cap_successful == True):
                 label = customtkinter.CTkLabel(self.scrollable_frame, text="Passed", text_color="green")
                 label.grid(row=cap_id, column=2, padx=25, pady=0, sticky="w")
+                # toggle_var.set("0")
             else:
                 label = customtkinter.CTkLabel(self.scrollable_frame, text="Failed", text_color="red")
                 label.grid(row=cap_id, column=2, padx=25, pady=0, sticky="w")
@@ -481,6 +482,8 @@ class App(customtkinter.CTk):
     
     #needs more work
     def update_result_label(self, column_index, toggle_var):
+        print(column_index)
+        print(self.scrollable_frame_switches)
         result_label = self.scrollable_frame_switches[column_index]["result_label"]
         if toggle_var.get():
             result_label.configure(text="Passed", text_color="green")
