@@ -235,38 +235,7 @@ class App(customtkinter.CTk):
         self.grid_rowconfigure(tuple(range(8)), weight=1)
 
         self.data_to_write = []
-        self.current_batch = [  
-            {    
-                "cap_id" : 1,
-                "cap_successful" : True,
-                "cap_values" : [
-                    4780,4686,4668,4632,4615,4592,4578,4572,4564,4560,4553,4548,4537,4530,4508,4496,4479,
-                    4472,4460,4453,4443,4437,4425,4420,4410,4404,4396,4392,4384,4377,4373,4370,4363,4360,4355,4352,
-                    4348,4344,4342,4339,4336,4334,4332,4330,4329,4323,4321,4315,4308,4304,4295,4290,
-                    4281,4276,4268,4263,4253,4250,4243,4240,4235,4231,4226,4223,4218,
-                    4214,4205,4194,4187,4169,4157,4128,4110,4092,4067,4050,4033,3988
-                ]
-            },
-            {    
-                "cap_id" : 2,
-                "cap_successful" : True,
-                "cap_values" : [
-                    4548,4522,4451,4433,4405,4393,4346,4324,4292, 4278,4251,4241,4216,4199,4191,4186,4177,
-                    4172,4163,4160,4149,4136,4130,4117,4109,4095,4089,4075,4068,4050,4043,4032,4013,3987,
-                    3971,3950,3940,3884,3847,3747,
-                ]
-            },
-            {   
-                "cap_id" : 3,
-                "cap_successful" : True,
-                "cap_values" : [
-                    4780,4686,4668,4632,4615,4592,4578,4572,4564,4560,4553,4548,4537,4530,4508,4496,4479,
-                    4472,4460,4453,4443,4437,4425,4420,4410,4404,4396,4392,4384,4377,4373,4370,4363,4360,4355,4352,
-                    4348,4344,4342,4339,4336,4334,4332,4330,4329,4323,4321,4315,4308,4304,4295,4290,
-                    4281,4276,4268,4263,4253,4250,4243,4240,4235,4231,4226,4223,4218,
-                    4214,4205,4194,4187,4169,4157,4128,4110,4092,4067,4050,4033,3988
-                ]
-            },] # initial batch of caps
+        self.current_batch = [] # initial batch of caps
 
         # CREATE SIDEBAR
         self.sidebar_frame()
@@ -287,7 +256,7 @@ class App(customtkinter.CTk):
 
         self.scrollable_area()
 
-        self.analysis_button(col=14, text="Analyze", command=self.save_batch)
+        self.analysis_button(col=14, text="Clear", command=self.clear_batch)
         self.analysis_button(col=16, text="Submit", command=self.save_batch)
 
     # DATABASE INITIALIZATION
@@ -493,33 +462,33 @@ class App(customtkinter.CTk):
                     normalized_index, normalized_data = self.interpolate_and_normalize(
                         self.data_to_write, target_length
                     )
-                    print(normalized_data)
-
-                    differences = np.diff(normalized_data) * 100
-
-                    if any(abs(diff) > 5 for diff in differences[-20:]):
-                        print(
-                            f"At least one value in the last 20 elements differences is over 5."
-                        )
-                        self.cap_successful = False
+                    
+                    if normalized_data is None:
+                        print("Skipping analysis due to lack of data variation.")
+                        self.cap_successful = False  # You might want to consider how to handle this case
                     else:
-                        print(
-                            f"No value in the last 20 elements differences is over 5."
-                        )
-                        self.cap_successful = True
+                        differences = np.diff(normalized_data) * 100
+
+                        if any(abs(diff) > 5 for diff in differences[-20:]):
+                            print("At least one value in the last 20 elements differences is over 5.")
+                            self.cap_successful = False
+                        else:
+                            print("No value in the last 20 elements differences is over 5.")
+                            self.cap_successful = True
                     
                     self.current_batch.append(
-                            {
+                        {
                             "cap_id": self.capNo,
                             "cap_successful": self.cap_successful,
                             "cap_values": self.data_to_write,
-                            }
-                        )
+                        }
+                    )
                     self.capNo += 1
                     print()
                     self.data_to_write = []
                     self.scrollable_area()
                     break
+
 
     def getReg(self, reg_no):
         dataReg = self.robot_read.get_reg(reg_no)
@@ -558,6 +527,10 @@ class App(customtkinter.CTk):
         if self.connected:
             self.robot_read.set_reg(reg,val=param_value,cmt=f"{label} Value")
 
+    def clear_batch(self):
+        self.current_batch = []
+        self.scrollable_area()
+        
     def save_batch(self):
         if self.current_batch:
             try:
@@ -600,7 +573,8 @@ class App(customtkinter.CTk):
             data_max = max(interpolated_array)
             
             if data_min == data_max:
-                raise ValueError("The interpolated data has no variation (min == max).")
+                print("No variation in data; skipping normalization.")
+                return None, None  # Indicate that normalization isn't possible due to no variation
 
             normalized_data = (interpolated_array - data_min) / (data_max - data_min)
             
