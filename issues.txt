@@ -1,0 +1,27 @@
+Traceback (most recent call last):
+  File "C:\Users\ai\anaconda3\envs\pythnEnv\Lib\tkinter\__init__.py", line 1948, in __call__
+    return self.func(*args)
+           ^^^^^^^^^^^^^^^^
+  File "C:\Users\ai\anaconda3\envs\pythnEnv\Lib\site-packages\customtkinter\windows\widgets\ctk_checkbox.py", line 423, in toggle
+    self._command()
+  File "c:\Users\ai\Desktop\SealerGUI\guiV2.py", line 470, in <lambda>
+    command=lambda col=cap_id, var=toggle_var: self.update_result_label(
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\ai\Desktop\SealerGUI\guiV2.py", line 484, in update_result_label
+    result_label = self.scrollable_frame_switches[column_index]["result_label"]
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+IndexError: list index out of range
+Exception in Tkinter callback
+Traceback (most recent call last):
+  File "C:\Users\ai\anaconda3\envs\pythnEnv\Lib\tkinter\__init__.py", line 1948, in __call__
+    return self.func(*args)
+           ^^^^^^^^^^^^^^^^
+  File "C:\Users\ai\anaconda3\envs\pythnEnv\Lib\site-packages\customtkinter\windows\widgets\ctk_checkbox.py", line 423, in toggle
+    self._command()
+  File "c:\Users\ai\Desktop\SealerGUI\guiV2.py", line 470, in <lambda>
+    command=lambda col=cap_id, var=toggle_var: self.update_result_label(
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\ai\Desktop\SealerGUI\guiV2.py", line 484, in update_result_label
+    result_label = self.scrollable_frame_switches[column_index]["result_label"]
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+IndexError: list index out of range
