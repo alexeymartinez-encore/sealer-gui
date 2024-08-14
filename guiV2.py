@@ -536,7 +536,7 @@ class App(customtkinter.CTk):
                     self.cap_successful = True
                     target_length = 100
                     normalized_index, normalized_data = self.interpolate_and_normalize(
-                        data, target_length
+                        self.data_to_write, target_length
                     )
                     print(normalized_data)
 
@@ -570,14 +570,15 @@ class App(customtkinter.CTk):
                     
                     self.current_batch.append(
                             {
-                            "cap_id": capNo,
+                            "cap_id": self.capNo,
                             "cap_successful": self.cap_successful,
-                            "cap_load_cell_data": self.data_to_write,
+                            "cap_values": self.data_to_write,
                             }
                         )
-                    capNo += 1
+                    self.capNo += 1
                     print()
                     self.data_to_write = []
+                    self.scrollable_area()
                     break
 
     def getReg(self, reg_no):
