@@ -70,3 +70,20 @@ current_batch = [
             }
 
 ] # array of objects holding the sealed caps
+
+
+4443
+4366
+4270
+4256
+4238
+4192
+4180
+4138
+4124
+4097
+4084
+4063
+4048
+0
+
