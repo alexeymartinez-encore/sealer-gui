@@ -14,12 +14,8 @@ from threading import Thread
 
 from faroc import FaRoC_Reader, FaRoC_Writer, FaRoC_Mover
 
-customtkinter.set_appearance_mode(
-    "System"
-)  # Modes: "System" (standard), "Dark", "Light"
-customtkinter.set_default_color_theme(
-    "blue"
-)  # Themes: "blue" (standard), "green", "dark-blue"
+customtkinter.set_appearance_mode("System")
+customtkinter.set_default_color_theme("blue")
 
 class Extra_Reg(tk.Toplevel):
     def __init__(self,db):
@@ -29,14 +25,13 @@ class Extra_Reg(tk.Toplevel):
         self.geometry('1200x600')
         self.configure(background="#333") 
         
-        
         style = ttk.Style()  # Create a ttk.Style object
         style.theme_use("alt")  # Set the default theme
 
         # configure grid layout (6x3)
         self.grid_columnconfigure(tuple(range(4)), weight=1)
         self.grid_rowconfigure(tuple(range(8)), weight=1)
-        
+
 class Extra(tk.Toplevel):
     def __init__(self, db):
         super().__init__()
@@ -124,11 +119,12 @@ class Extra_Lookup(tk.Toplevel):
             label = customtkinter.CTkLabel(self.fasteners_scrollable_frame, text=f"Cap {index + 1}")
             label.grid(row=index, column=0, padx=(5, 0), pady=5, sticky="nwse")
 
-            if cap_successful:
-                label = customtkinter.CTkLabel(self.fasteners_scrollable_frame, text_color='green', text="Passed")
-            else:
-                label = customtkinter.CTkLabel(self.fasteners_scrollable_frame, text_color='red', text="Failed")
-            label.grid(row=index, column=1, padx=(5), pady=5, sticky="nwse")
+            result_label = customtkinter.CTkLabel(
+                self.fasteners_scrollable_frame, 
+                text="Passed" if cap_successful else "Failed", 
+                text_color='green' if cap_successful else 'red'
+            )
+            result_label.grid(row=index, column=1, padx=(5), pady=5, sticky="nwse")
 
             show_graph_button = customtkinter.CTkButton(
                 master=self.fasteners_scrollable_frame,
@@ -140,10 +136,23 @@ class Extra_Lookup(tk.Toplevel):
             )
             show_graph_button.grid(row=index, column=2, padx=10, pady=5, sticky="nwse")
 
+            toggle_var = tkinter.BooleanVar(value=cap_successful)
+            toggle = customtkinter.CTkCheckBox(
+                self.fasteners_scrollable_frame,
+                text="",
+                variable=toggle_var,
+                command=lambda cap=cap, var=toggle_var, lbl=result_label: self.update_result(cap, var, lbl),
+            )
+            toggle.grid(row=index, column=3, padx=0, pady=0, sticky="e")
 
+    def update_result(self, cap, toggle_var, result_label):
+        cap["cap_successful"] = toggle_var.get()
+        result_label.configure(
+            text="Passed" if cap["cap_successful"] else "Failed",
+            text_color='green' if cap["cap_successful"] else 'red'
+        )
 
     def batch_scrollable_area(self):
-        # Create Analysis Area
         self.batch_scrollable_frame = customtkinter.CTkScrollableFrame(
             self, label_text="Batches"
         )
@@ -151,11 +160,9 @@ class Extra_Lookup(tk.Toplevel):
             row=2, column=0, columnspan=10, rowspan=10, padx=(5,0), pady=(0,10), sticky="nsew"
         )
         self.batch_scrollable_frame.grid_columnconfigure(0, weight=1)
-
         return self.batch_scrollable_frame
     
     def fasteners_scrollable_area(self):
-        # Create Analysis Area
         self.fasteners_scrollable_frame = customtkinter.CTkScrollableFrame(
             self, label_text="Sealed Fasteners"
         )
@@ -163,18 +170,13 @@ class Extra_Lookup(tk.Toplevel):
             row=0, column=10, columnspan=8, rowspan=12, padx=(8,0), pady=(5,10), sticky="nsew"
         )
         self.fasteners_scrollable_frame.grid_columnconfigure(0, weight=1)
-
         return self.fasteners_scrollable_frame
 
     def show_graph_for_column(self,values:list, column:int):
-        # Read the data from the CSV file
         print(column)
-        # print(values)
-
         normalized_index, normalized_data = self.interpolate_and_normalize(
             values, len(values)
         )
-        # Plot the selected column
         self.ax.clear()
         self.ax.plot(normalized_index, normalized_data, linestyle="-", color="b")
         self.ax.set_title(f"Cap {column}")
@@ -183,25 +185,21 @@ class Extra_Lookup(tk.Toplevel):
         self.canvas.draw()
     
     def create_graph_frame(self):
-        # Create graph frame
         self.graph_frame = ttk.Frame(self)
         self.graph_frame.grid(
             row=0, column=20, rowspan=4, columnspan=2,pady=(20,0), sticky='nwse'
         )
         self.graph_frame["border"] = 2
 
-        # Sets up graph with rounded corners
         self.fig = Figure(figsize=(8, 6), dpi=100)
         self.ax = self.fig.add_subplot(111)
         self.ax.set_title("Real-Time Graph")
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.graph_frame)
-        self.canvas.get_tk_widget().grid(row=0, column=0, sticky="nwes")  # Use sticky to expand widget in all directions
+        self.canvas.get_tk_widget().grid(row=0, column=0, sticky="nwes")
         self.canvas.get_tk_widget().configure(borderwidth=0, highlightthickness=0)
 
-        # Configure row and column weights for the graph frame to expand
         self.graph_frame.columnconfigure(0, weight=1)
         self.graph_frame.rowconfigure(0, weight=1)
-
         return self.graph_frame
     
     def interpolate_and_normalize(self, data_list, target_length):
@@ -230,52 +228,63 @@ class App(customtkinter.CTk):
 
         self.connected = False
 
-        # Create a custom style for the progress bar
         style = ttk.Style()
-        style.theme_use("default")  # Use the default theme as a base
+        style.theme_use("default")
 
-        # configure grid layout (6x3)
         self.grid_columnconfigure(tuple(range(24)), weight=1)
         self.grid_rowconfigure(tuple(range(8)), weight=1)
 
-        # VARIABLES
         self.data_to_write = []
-        self.current_batch = [] # initial batch of caps
+        self.current_batch = [  
+            {    
+                "cap_id" : 1,
+                "cap_successful" : True,
+                "cap_values" : [
+                    4780,4686,4668,4632,4615,4592,4578,4572,4564,4560,4553,4548,4537,4530,4508,4496,4479,
+                    4472,4460,4453,4443,4437,4425,4420,4410,4404,4396,4392,4384,4377,4373,4370,4363,4360,4355,4352,
+                    4348,4344,4342,4339,4336,4334,4332,4330,4329,4323,4321,4315,4308,4304,4295,4290,
+                    4281,4276,4268,4263,4253,4250,4243,4240,4235,4231,4226,4223,4218,
+                    4214,4205,4194,4187,4169,4157,4128,4110,4092,4067,4050,4033,3988
+                ]
+            },
+            {    
+                "cap_id" : 2,
+                "cap_successful" : True,
+                "cap_values" : [
+                    4548,4522,4451,4433,4405,4393,4346,4324,4292, 4278,4251,4241,4216,4199,4191,4186,4177,
+                    4172,4163,4160,4149,4136,4130,4117,4109,4095,4089,4075,4068,4050,4043,4032,4013,3987,
+                    3971,3950,3940,3884,3847,3747,
+                ]
+            },
+            {   
+                "cap_id" : 3,
+                "cap_successful" : True,
+                "cap_values" : [
+                    4780,4686,4668,4632,4615,4592,4578,4572,4564,4560,4553,4548,4537,4530,4508,4496,4479,
+                    4472,4460,4453,4443,4437,4425,4420,4410,4404,4396,4392,4384,4377,4373,4370,4363,4360,4355,4352,
+                    4348,4344,4342,4339,4336,4334,4332,4330,4329,4323,4321,4315,4308,4304,4295,4290,
+                    4281,4276,4268,4263,4253,4250,4243,4240,4235,4231,4226,4223,4218,
+                    4214,4205,4194,4187,4169,4157,4128,4110,4092,4067,4050,4033,3988
+                ]
+            },] # initial batch of caps
 
         # CREATE SIDEBAR
-        # Create Sidebar Frame w/ Widgets
         self.sidebar_frame()
-
         self.create_sidebar_logo(text="Menu")
-
-        # Create Sidebar Buttons
         self.create_sidebar_button(btn_text="Set Registers", row=1,col=0,command=self.create_reg_window)
         self.create_sidebar_button(btn_text="Configure", row=2,col=0,command=self.create_config_window)
         self.create_sidebar_button(btn_text="Search", row=3,col=0,command=self.create_lookup_window)
-
-        # Create Appearance Mode Dropdown
         self.appearance_modes()
 
-
         # MIDDLE
-        # Create graph
         self.create_graph_frame()
 
-
-        # Creat Input Value Area
-        # self.crush_value = self.getReg(5)
         self.value_input(row=2, col=2, label='Crush',placeholder_text=f"5")
-
-        # self.pressure_value = self.getReg(6)
         self.value_input(row=3, col=2, label="Pressure", placeholder_text=f"6 psi")
-
-        # self.cure_time_value = self.getReg(7)
         self.value_input(row=4, col=2, label="Cure Time",placeholder_text=f"7 ms")
           
         self.connection_button(connection_type=self.toggle_connection)
 
-
-        # Analytics Area
         self.scrollable_area()
 
         self.analysis_button(col=14, text="Analyze", command=self.save_batch)
@@ -283,7 +292,6 @@ class App(customtkinter.CTk):
 
     # DATABASE INITIALIZATION
     def init_db(self):
-        # Connect to MongoDB
         try:
             self.client = MongoClient("mongodb://localhost:27017/")
             self.db = self.client["uv_sealer"]
@@ -292,26 +300,23 @@ class App(customtkinter.CTk):
         except Exception as e:
             messagebox.showerror("Database Connection Error", str(e))
 
-
-    ##################################     WIDGETS  ##################################
     def sidebar_frame(self):
         self.sidebar_frame = customtkinter.CTkFrame(self, width=140, corner_radius=0)
         self.sidebar_frame.grid(row=0, column=0, columnspan=2, rowspan=8, sticky="nsew")
-        self.sidebar_frame.columnconfigure(0, weight=1)  # Center the label horizontally
-        self.sidebar_frame.rowconfigure(7, weight=1)  # Expand vertically
+        self.sidebar_frame.columnconfigure(0, weight=1)
+        self.sidebar_frame.rowconfigure(7, weight=1)
         return self.sidebar_frame      
 
     def change_appearance_mode_event(self, new_appearance_mode: str):
-            customtkinter.set_appearance_mode(new_appearance_mode)
+        customtkinter.set_appearance_mode(new_appearance_mode)
 
     def appearance_modes(self):
-        # Appearance Modes
         self.appearance_mode_label = customtkinter.CTkLabel(
             self.sidebar_frame, text="Appearance Mode:", anchor="w"
         )
         self.appearance_mode_label.grid(
             row=7, column=0, padx=50, pady=(0, 0), sticky="s"
-        )  # Place at the bottom of the sidebar
+        )
 
         self.appearance_mode_optionemenu = customtkinter.CTkOptionMenu(
             self.sidebar_frame,
@@ -320,7 +325,7 @@ class App(customtkinter.CTk):
         )
         self.appearance_mode_optionemenu.grid(
             row=8, column=0, pady=(0, 30), sticky="ns"
-        )  # Place at the bottom of the window
+        )
         self.appearance_mode_optionemenu.set("Dark")
 
         return self.appearance_mode_optionemenu
@@ -331,48 +336,37 @@ class App(customtkinter.CTk):
         return button
     
     def create_sidebar_logo(self, text:str):
-        # Creating side label
         logo_label = customtkinter.CTkLabel(
             self.sidebar_frame,
             font=customtkinter.CTkFont(size=20, weight="bold"),
             text=text,
         )
-        # Place the label in the middle of the sidebar frame horizontally
         logo_label.grid(row=0, column=0, pady=20, sticky="nsew")
-
         return logo_label
 
     def create_graph_frame(self):
-        # Create graph frame
         self.graph_frame = ttk.Frame(self)
         self.graph_frame.grid(
             row=0, column=2, rowspan=1, columnspan=6, padx=15, pady=15, sticky="nsew"
         )
         self.graph_frame["border"] = 2
 
-        # Sets up graph with rounded corners
         self.fig = Figure(figsize=(8, 6), dpi=100)
         self.ax = self.fig.add_subplot(111)
         self.ax.set_title("Real-Time Graph")
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.graph_frame)
-        self.canvas.get_tk_widget().grid(row=0, column=0, sticky="nwes")  # Use sticky to expand widget in all directions
+        self.canvas.get_tk_widget().grid(row=0, column=0, sticky="nwes")
         self.canvas.get_tk_widget().configure(borderwidth=0, highlightthickness=0)
 
-        # Configure row and column weights for the graph frame to expand
         self.graph_frame.columnconfigure(0, weight=1)
         self.graph_frame.rowconfigure(0, weight=1)
-
         return self.graph_frame
     
     def show_graph_for_cap(self,values:list, column:int):
-        # Read the data from the CSV file
         print(column)
-        # print(values)
-
         normalized_index, normalized_data = self.interpolate_and_normalize(
             values, len(values)
         )
-        # Plot the selected column
         self.ax.clear()
         self.ax.plot(normalized_index, normalized_data, linestyle="-", color="b")
         self.ax.set_title(f"Cap {column}")
@@ -397,36 +391,29 @@ class App(customtkinter.CTk):
             master=container_frame,
             fg_color="#206dae",
             text="Enter",
-            # border_width=1,
             text_color=("gray10", "#DCE4EE"),
             hover_color="#2D4F86",
             command=lambda: self.submit_value(label)
         )
         self.param_entry_button.grid(row=0, column=2)
 
-        # Grid the container frame onto the main frame
         container_frame.grid(row=row, column=col, sticky="e")
-
         return container_frame
 
     def connection_button(self, connection_type):
-        # Connect Button
         self.start_button = customtkinter.CTkButton(
             master=self,
             fg_color="#206dae",
             text="Connect",
-            # border_width=1,
             text_color=("gray10", "#DCE4EE"),
             hover_color="#2D4F86",
             command=connection_type
         )
 
         self.start_button.grid(row=2, column=7, padx=5, sticky="news")
-
         return self.start_button
 
     def scrollable_area(self):
-        # Create Analysis Area
         self.scrollable_frame = customtkinter.CTkScrollableFrame(
             self, label_text="Cap Results"
         )
@@ -436,16 +423,10 @@ class App(customtkinter.CTk):
         self.scrollable_frame.grid_columnconfigure(0, weight=1)
         self.scrollable_frame_switches = []
 
-
-
         for doc in self.current_batch:
             cap_id = doc["cap_id"]
             cap_successful = doc["cap_successful"]
             cap_numbers = doc["cap_values"]
-            
-
-            # label = customtkinter.CTkLabel(self.scrollable_frame, text=f"{cap_id}")
-            # label.grid(row=cap_id, column=0, padx=0, pady=0, sticky="w")
 
             button = customtkinter.CTkButton(
                 self.scrollable_frame, 
@@ -454,88 +435,59 @@ class App(customtkinter.CTk):
             )
             button.grid(row= cap_id, column=1, padx=5, pady=5, sticky="ne")
 
+            result_label = customtkinter.CTkLabel(
+                self.scrollable_frame, 
+                text="Passed" if cap_successful else "Failed", 
+                text_color="green" if cap_successful else "red"
+            )
+            result_label.grid(row=cap_id, column=2, padx=25, pady=0, sticky="w")
 
-            if(cap_successful == True):
-                label = customtkinter.CTkLabel(self.scrollable_frame, text="Passed", text_color="green")
-                label.grid(row=cap_id, column=2, padx=25, pady=0, sticky="w")
-                # toggle_var.set("0")
-            else:
-                label = customtkinter.CTkLabel(self.scrollable_frame, text="Failed", text_color="red")
-                label.grid(row=cap_id, column=2, padx=25, pady=0, sticky="w")
-
-            toggle_var = tkinter.BooleanVar()
+            toggle_var = tkinter.BooleanVar(value=cap_successful)
             toggle = customtkinter.CTkCheckBox(
                 self.scrollable_frame,
                 text="",
                 variable=toggle_var,
-                command=lambda col=cap_id, var=toggle_var: self.update_result_label(
-                    col, var
-                ),
+                command=lambda cap=doc, var=toggle_var, lbl=result_label: self.update_result(cap, var, lbl),
             )
             toggle.grid(row=cap_id, column=3, padx=0, pady=0, sticky="e")
 
-            # Do something with the extracted information
-            # print("Cap ID:", cap_id)
-            # print("Cap Successful:", cap_successful)
-            # print("Cap Numbers:", cap_numbers)
         return self.scrollable_frame
-    
-    #needs more work
-    def update_result_label(self, column_index, toggle_var):
-        print(column_index)
-        print(self.scrollable_frame_switches)
-        result_label = self.scrollable_frame_switches[column_index]["result_label"]
-        if toggle_var.get():
-            result_label.configure(text="Passed", text_color="green")
-        else:
-            result_label.configure(text="Failed", text_color="red")
 
-            # Add a new method to check for changes in the CSV file
+    def update_result(self, cap, toggle_var, result_label):
+        cap["cap_successful"] = toggle_var.get()
+        result_label.configure(
+            text="Passed" if cap["cap_successful"] else "Failed",
+            text_color='green' if cap["cap_successful"] else 'red'
+        )
 
     def analysis_button(self,col:int, text:str, command):
         button = customtkinter.CTkButton(
             master=self,
             fg_color="#206dae",
             text=text,
-            # border_width=1,
             text_color=("gray10", "#DCE4EE"),
             command=command,
         )
         button.grid(row=7, column=col, ipadx=10, ipady=5, sticky="new")
         return button
 
-    def establish_connection(self): # need to add collect data_variable
-        # can read and write data but not move the robot.
+    def establish_connection(self):
         self.robot_read = FaRoC_Writer()
         self.robot_read.connect()
-        # get status of used object and its socket
         self.robot_read.status()
         self.connected = True
-        # print(self.connected)
         
         self.capNo = 1
 
-        # print(self.getReg(37))
-
         flag=True
         while self.connected:
-            dataRO = self.getRO(3) # robot output #3 => KissValve Opens
-            # print(dataRO)
+            dataRO = self.getRO(3)
             while dataRO != 0:
                 dataRO = self.getRO(3) 
-                data = self.getReg(37) # register #37 => Loadcell
+                data = self.getReg(37)
                 print(data)
-                # Append the data to the variable for writing to CSV
                 self.data_to_write.append(data)
                 if dataRO == 0:
-                    # ANALYZING LOGIC COULD BE HERE OR MAYBE WAIT UNTIL YOU HIT ANALYZE BUTTON GETS CLICKED
-                    # AND THEN DO THE ANALYSIS, ANYWAYS IN ORDER TO SAVE THE BATCH YOU MUST FIRST HAVE ALL FIELDS.4
-                    # ADD CHECK FOR ENSURING AL FILEDS ARE PRESENT BEFORE SAVING DATA. 
-                    ##########################################################################################################
-                    ##########################################################################################################
-                    ########################################## WORKING STARTS HERE ##################################################
-                    ##########################################################################################################
-                    ##########################################################################################################
                     self.cap_successful = True
                     target_length = 100
                     normalized_index, normalized_data = self.interpolate_and_normalize(
@@ -543,33 +495,18 @@ class App(customtkinter.CTk):
                     )
                     print(normalized_data)
 
-                    # Calculate differences between consecutive points
                     differences = np.diff(normalized_data) * 100
 
-                    # Check if any value in the last 20 elements of the differences list is over 5
                     if any(abs(diff) > 5 for diff in differences[-20:]):
                         print(
                             f"At least one value in the last 20 elements differences is over 5."
                         )
                         self.cap_successful = False
-                        # result_label = customtkinter.CTkLabel(
-                        #     self.scrollable_frame, text="Failed", text_color="red"
-                        # )
-                        # # toggle_var.set("0")
                     else:
                         print(
                             f"No value in the last 20 elements differences is over 5."
                         )
                         self.cap_successful = True
-                        # result_label = customtkinter.CTkLabel(
-                        #     self.scrollable_frame, text="Passed", text_color="green"
-                        # )
-                        # # toggle_var.set("1")
-                    ##########################################################################################################
-                    ##########################################################################################################
-                    ########################################## WORKING ENDS HERE ##################################################
-                    ##########################################################################################################
-                    ##########################################################################################################
                     
                     self.current_batch.append(
                             {
@@ -593,9 +530,7 @@ class App(customtkinter.CTk):
         dataRO = self.robot_read.get_rdo(ro_no)
         dataRO = dataRO[2]
         return dataRO[0]
-    
 
-    
     def toggle_connection(self):
         if not self.connected:
             self.data_collection_running = (
@@ -608,32 +543,25 @@ class App(customtkinter.CTk):
             self.disconnect()
             self.data_collection_running = False
 
-            self.start_button.configure(text="Connect", fg_color="#206dae", hover_color="#2D4F86")   
-            # Save the current file count when disconnecting
-
+            self.start_button.configure(text="Connect", fg_color="#206dae", hover_color="#2D4F86")
 
     def disconnect(self):
         self.robot_read.disconnect()
         self.robot_read.status()
         self.connected = False
         print(self.connected)
-        
 
     def submit_value(self, label):
-        param_value = self.param_entry.get()  # Get the content of the entry
+        param_value = self.param_entry.get()
         print(f"{label}:", param_value) 
         reg = 6
         if self.connected:
-            # Set value & comment
-            #code, msg, data = robot.set_reg(1, val=1234, cmt='commetn 1')
             self.robot_read.set_reg(reg,val=param_value,cmt=f"{label} Value")
 
     def save_batch(self):
         if self.current_batch:
             try:
-                # Get current date
                 current_date = datetime.now()
-                # Convert to string in "yyyy/mm/dd" format
                 date_string = current_date.strftime("%Y-%m-%d")
                 self.batches_collection.insert_one(
                     {
@@ -654,25 +582,20 @@ class App(customtkinter.CTk):
 
     def interpolate_and_normalize(self, data_list, target_length):
         try:
-            # Check if the input data_list is not empty
             if len(data_list) == 0:
                 raise ValueError("The input data_list cannot be empty.")
             
-            # Check if target_length is a positive integer
             if target_length <= 0:
                 raise ValueError("The target_length must be a positive integer.")
             
-            # Perform interpolation
             interpolated_array = np.interp(
                 np.linspace(0, 1, target_length),
                 np.linspace(0, 1, len(data_list)),
                 data_list,
             )
             
-            # Calculate normalized index
             normalized_index = (np.arange(target_length) - 0) / (target_length - 1)
             
-            # Calculate normalized data
             data_min = min(interpolated_array)
             data_max = max(interpolated_array)
             
@@ -693,18 +616,6 @@ class App(customtkinter.CTk):
             print(f"An unexpected error occurred: {e}")
             return None, None
 
-    # def interpolate_and_normalize(self, data_list, target_length):
-    #     interpolated_array = np.interp(
-    #         np.linspace(0, 1, target_length),
-    #         np.linspace(0, 1, len(data_list)),
-    #         data_list,
-    #     )
-    #     normalized_index = (np.arange(target_length) - 0) / (target_length - 1)
-    #     normalized_data = (interpolated_array - min(interpolated_array)) / (
-    #         max(interpolated_array) - min(interpolated_array)
-    #     )
-    #     return normalized_index, normalized_data
-
     def create_config_window(self):
         global extra_window
         extra_window = Extra(self.db)
@@ -724,3 +635,4 @@ class App(customtkinter.CTk):
 if __name__ == "__main__":
     app = App()
     app.mainloop()
+
