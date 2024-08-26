@@ -41,15 +41,82 @@ class Extra(tk.Toplevel):
         super().__init__()
         self.db =db
         self.title('Configure')
-        self.geometry('1200x600')
+        self.geometry('800x600')
         self.configure(background="#333") 
     
         style = ttk.Style()  # Create a ttk.Style object
         style.theme_use("alt")  # Set the default theme
 
         # configure grid layout (6x3)
-        self.grid_columnconfigure(tuple(range(4)), weight=1)
-        self.grid_rowconfigure(tuple(range(8)), weight=1)
+        self.grid_columnconfigure(tuple(range(24)), weight=1)
+        self.grid_rowconfigure(tuple(range(24)), weight=1)
+
+        # Properly set the parent to `self` in `CTkLabel`
+        self.title = customtkinter.CTkLabel(self, font=customtkinter.CTkFont(size=15, weight="bold"), text=f"Configure Areas for Analysis (values bewteen 0 and 1 and they should add to one)")
+        self.title.grid(row=0, column=0, padx=20, pady=20, sticky="w")
+        self.input_container = customtkinter.CTkFrame(self)
+        self.input_container.grid(row=1, column=0, columnspan=1, padx=10, pady=10, sticky="w")
+
+        self.param_one_label = customtkinter.CTkLabel(self.input_container, font=customtkinter.CTkFont(size=15, weight="bold"), text=f"First Area Percentage:")
+        self.param_one_label.grid(row=1, column=0, padx=20, pady=20, sticky="w")
+        self.param_entry_one = customtkinter.CTkEntry(self.input_container, placeholder_text="% 1")
+        self.param_entry_one.grid(row=1, column=1, padx=40,sticky="w")
+
+        self.param_two_label = customtkinter.CTkLabel(self.input_container, font=customtkinter.CTkFont(size=15, weight="bold"), text=f"Last Area Percentage:")
+        self.param_two_label.grid(row=2, column=0, padx=20, pady=20, sticky="w")
+        self.param_entry_two = customtkinter.CTkEntry(self.input_container, placeholder_text="% 2")
+        self.param_entry_two.grid(row=2, column=1, padx=40,sticky="w")
+
+        self.param_three_label = customtkinter.CTkLabel(self.input_container, font=customtkinter.CTkFont(size=15, weight="bold"), text=f"Area 3:")
+        self.param_three_label.grid(row=3, column=0, padx=20, pady=20, sticky="w")
+        self.param_entry_three = customtkinter.CTkEntry(self.input_container, placeholder_text="% 3")
+        self.param_entry_three.grid(row=3, column=1, padx=40, sticky="w")
+
+        # Adding a button inside the container
+        self.submit_button = customtkinter.CTkButton(self.input_container, text="Submit", command=self.submit_values)
+        self.submit_button.grid(row=4, column=0, columnspan=2, padx=20, pady=20, sticky="nwes")
+
+        self.input_container.grid_columnconfigure(0, weight=1)
+        self.input_container.grid_columnconfigure(1, weight=1)
+
+    def submit_values(self):
+            # Get the values entered by the user
+            area1 = self.param_entry_one.get()
+            area2 = self.param_entry_two.get()
+            area3 = self.param_entry_three.get()
+
+            # Ensure all entries are valid numbers
+            try:
+                area1 = float(area1)
+                area2 = float(area2)
+                area3 = float(area3)
+            except ValueError:
+                print("Please enter valid numbers.")
+                return
+
+            # Check that the values add up to 1
+            if area1 + area2 + area3 != 1.0:
+                print("The areas must add up to 1.")
+                messagebox.showerror("Error", "The areas must add up to 1.")
+
+                return
+
+            # Prepare the document to insert/update
+            config_name = "area_configuration"  # This can be changed to fit other configurations
+            config_values = [area1, area2, area3]
+
+            # Insert or update the configuration in the MongoDB collection
+            try:
+                self.db.configurations.update_one(
+                    {"name": config_name},  # Find the document by name
+                    {"$set": {"values": config_values}},  # Overwrite the values field
+                    upsert=True  # Insert the document if it doesn't exist
+                )
+                print("Configuration updated successfully!")
+                messagebox.showinfo("Success", "Data inserted successfully")
+            except Exception as e:
+                messagebox.showerror("Error", "An Error Occured. Try Again later")
+
 
 class Extra_Lookup(tk.Toplevel):
     def __init__(self, db):
@@ -175,18 +242,44 @@ class Extra_Lookup(tk.Toplevel):
         )
         self.fasteners_scrollable_frame.grid_columnconfigure(0, weight=1)
         return self.fasteners_scrollable_frame
-
-    def show_graph_for_column(self,values:list, column:int):
+    
+    def show_graph_for_column(self, values: list, column: int):
         print(column)
         normalized_index, normalized_data = self.interpolate_and_normalize(
             values, len(values)
         )
         self.ax.clear()
         self.ax.plot(normalized_index, normalized_data, linestyle="-", color="b")
+        config = self.configurations_collection.find_one({'name':'area_configuration'})
+
+                
+        if config:
+            values = config["values"]
+            print(f"Configuration found: {values}")
+        else:
+            print(f"No configuration found with name: area_configuration")
+            return None
+        
+        # Calculate the positions for the 20%, 80% marks
+        total_length = len(normalized_index)
+        first_percent = int(values[0] * total_length)
+        last_percent = int(1-values[2] * total_length)
+
+        # Shade the first 20%, middle 60%, and last 20% with different colors
+        self.ax.fill_between(normalized_index[:first_percent], normalized_data[:first_percent], color="yellow", alpha=0.3, label="First 20%")
+        self.ax.fill_between(normalized_index[first_percent:last_percent], normalized_data[first_percent:last_percent], color="blue", alpha=0.3, label="Middle 60%")
+        self.ax.fill_between(normalized_index[first_percent:], normalized_data[last_percent:], color="green", alpha=0.3, label="Last 20%")
+
+        # Optionally mark the boundaries as well
+        self.ax.axvline(x=normalized_index[first_percent], color="g", linestyle="--", label="20%")
+        self.ax.axvline(x=normalized_index[last_percent], color="r", linestyle="--", label="80%")
+
         self.ax.set_title(f"Cap {column}")
         self.ax.set_xlabel("Recorded Point")
         self.ax.set_ylabel("Loadcell Value")
+        self.ax.legend()  # Add a legend to indicate what the lines represent
         self.canvas.draw()
+
     
     def create_graph_frame(self):
         self.graph_frame = ttk.Frame(self)
@@ -239,7 +332,7 @@ class App(customtkinter.CTk):
         self.grid_rowconfigure(tuple(range(8)), weight=1)
 
         self.data_to_write = []
-        self.current_batch = [] # initial batch of caps
+        self.current_batch =     [] # initial batch of caps
         self.data_to_compare = [
             4230.0, 4153.0, 4041.0, 4020.0, 3991.0, 3975.0, 3946.0, 3930.0, 3901.0,
             3886.0, 3862.0, 3854.0, 3840.0, 3827.0, 3822.0, 3816.0, 3803.0, 3792.0,
@@ -267,6 +360,7 @@ class App(customtkinter.CTk):
         self.scrollable_area()
 
         self.analysis_button(col=14, text="Clear", command=self.clear_batch)
+        self.analysis_button(col=15, text="Re-Analyze", command=self.analyze_batch)
         self.analysis_button(col=16, text="Submit", command=self.save_batch)
 
     # DATABASE INITIALIZATION
@@ -275,6 +369,7 @@ class App(customtkinter.CTk):
             self.client = MongoClient("mongodb://localhost:27017/")
             self.db = self.client["uv_sealer"]
             self.batches_collection = self.db["batches"]
+            self.configurations_collection = self.db["configurations"]
             print("Connected to MongoDB")
         except Exception as e:
             messagebox.showerror("Database Connection Error", str(e))
@@ -341,16 +436,42 @@ class App(customtkinter.CTk):
         self.graph_frame.rowconfigure(0, weight=1)
         return self.graph_frame
     
-    def show_graph_for_cap(self,values:list, column:int):
+    def show_graph_for_cap(self, values: list, column: int):
         print(column)
         normalized_index, normalized_data = self.interpolate_and_normalize(
             values, len(values)
         )
         self.ax.clear()
         self.ax.plot(normalized_index, normalized_data, linestyle="-", color="b")
+
+        config = self.configurations_collection.find_one({'name':'area_configuration'})
+
+                
+        if config:
+            values = config["values"]
+            print(f"Configuration found: {values}")
+        else:
+            print(f"No configuration found with name: area_configuration")
+            return None
+        
+        # Calculate the positions for the 20%, 80% marks
+        total_length = len(normalized_index)
+        first_percent = int(values[0] * total_length)
+        last_percent = int(1 - values[2] * total_length)
+
+        # Shade the first 20%, middle 60%, and last 20% with different colors
+        self.ax.fill_between(normalized_index[:first_percent+1], normalized_data[:first_percent+1], color="yellow", alpha=0.3)
+        self.ax.fill_between(normalized_index[first_percent:last_percent+1], normalized_data[first_percent:last_percent+1], color="orange", alpha=0.3)
+        self.ax.fill_between(normalized_index[last_percent:], normalized_data[last_percent:], color="red", alpha=0.3)
+
+        # Optionally mark the boundaries as well
+        self.ax.axvline(x=normalized_index[first_percent], color="g", linestyle="--", label=f"{100 * values[0]}%")
+        self.ax.axvline(x=normalized_index[last_percent], color="r", linestyle="--",label=f"{100 * (1-values[2])}%")
+
         self.ax.set_title(f"Cap {column}")
         self.ax.set_xlabel("Recorded Point")
         self.ax.set_ylabel("Loadcell Value")
+        self.ax.legend()  # Add a legend to indicate what the lines represent
         self.canvas.draw()
 
     def value_input(self, row: int, col: int, label:str, placeholder_text):
@@ -447,7 +568,7 @@ class App(customtkinter.CTk):
             text_color=("gray10", "#DCE4EE"),
             command=command,
         )
-        button.grid(row=7, column=col, ipadx=10, ipady=5, sticky="new")
+        button.grid(row=7, column=col,padx=5, ipadx=7, ipady=5, sticky="new")
         return button
 
     def establish_connection(self):
@@ -500,6 +621,7 @@ class App(customtkinter.CTk):
 
         normalized_sliced_data = self.slice_data(normalized_data)
         sample_normalized_sliced_data = self.slice_data(sample_normalized_data)
+        weights = [1,2,3]
 
        # Compare each slice to the smoothed reference profile
         for i in range(3):
@@ -507,24 +629,34 @@ class App(customtkinter.CTk):
             mse_values.append(mse)
             print(f"MSE for slice {i+1}: {mse}")
 
-        # Apply Gaussian smoothing to the reference profile (uncomment if needed)
-        # smoothed_reference = gaussian_filter1d(sample_normalized_data, sigma=2)
+        # Applying the weights
+        weighted_values = [value * weight for value, weight in zip(mse_values, weights)]
+        weighted_sum = sum(weighted_values)
+        threshold = 0.05
 
-        # Compare each cap to the smoothed reference profile
-        # mse = mean_squared_error(smoothed_reference, normalized_data)
-        # mse_values.append(mse)
         print(mse_values)
         # Check if any MSE values exceed the threshold
-        if mse_values[2] > 0.0700:
+        if weighted_sum > threshold:
             self.cap_successful = False
 
         return self.cap_successful
     
     def slice_data(self, array):
+        config = self.configurations_collection.find_one({'name':'area_configuration'})       
+        if config:
+            values = config["values"]
+            print(f"Configuration found: {values}")
+            # messagebox.showinfo("Success", f"Configuration found: {values}")
+
+        else:
+            print(f"No configuration found with name: area_configuration")
+            messagebox.showinfo("Error", "No configuration found with name: area_configuration")
+            return None
+        
         total_length = len(array)
-        first_part_end = int(0.2 * total_length)
+        first_part_end = int(values[0] * total_length)
         middle_part_start = first_part_end
-        middle_part_end = int(0.8 * total_length)
+        middle_part_end = int(1-values[2] * total_length)
         last_part_start = middle_part_end
 
         first_part = array[:first_part_end]
@@ -577,6 +709,16 @@ class App(customtkinter.CTk):
     def clear_batch(self):
         self.current_batch = []
         self.scrollable_area()
+
+    def analyze_batch(self):
+        
+        if(len(self.current_batch) == 0):
+            messagebox("Error", "There is no data to analyze")
+        else:
+            for cap in self.current_batch:
+                self.cap_analysis(cap['cap_values'])
+            self.scrollable_area()
+        
         
     def save_batch(self):
         if self.current_batch:
