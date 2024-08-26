@@ -485,7 +485,7 @@ class App(customtkinter.CTk):
 
     def cap_analysis(self, data):
         self.cap_successful = True
-        target_length = 100
+        target_length = 300
 
         normalized_index, normalized_data = self.interpolate_and_normalize(data, target_length)
         sample_normalized_index, sample_normalized_data = self.interpolate_and_normalize(self.data_to_compare, target_length)
@@ -504,9 +504,9 @@ class App(customtkinter.CTk):
         # Compare each cap to the smoothed reference profile
         mse = mean_squared_error(smoothed_reference, normalized_data)
         mse_values.append(mse)
-
+        print(mse_values)
         # Check if any MSE values exceed the threshold
-        if mse > 0.1500:
+        if mse > 0.0700:
             self.cap_successful = False
 
         return self.cap_successful
